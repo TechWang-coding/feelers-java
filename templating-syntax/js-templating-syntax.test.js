@@ -1,5 +1,16 @@
 import { describe, expect, test } from '@jest/globals';
-import { evaluate, parseToSimpleTree } from 'feelers';
+import { evaluate, parse as parseTemplate, parseToSimpleTree } from 'feelers';
+
+function validateTemplateSyntax(template) {
+  const errors = [];
+  const cursor = parseTemplate(template).cursor();
+
+  do {
+    if (cursor.type.isError) errors.push({ from: cursor.from, to: cursor.to });
+  } while (cursor.next());
+
+  return errors;
+}
 
 /**
  * Executable behaviour contract for the front-end FEELers implementation.
@@ -85,5 +96,25 @@ describe('FEELers template syntax', () => {
     expect(tree.name).toBe('Feelers');
     expect(insert.name).toBe('Insert');
     expect(insert.children[0].content).toBe(' name ');
+  });
+
+  test.each([
+    'Plain text',
+    'Hello {{ user.name }}!',
+    'a{{}}b',
+    'a{{= user.name}}b',
+    '{{#if active}}{{#loop users}}{{name}}{{/loop}}{{/if}}',
+    '= if score > 60 then "pass" else "fail"'
+  ])('accepts valid FEELers template syntax: %s', (template) => {
+    expect(validateTemplateSyntax(template)).toEqual([]);
+  });
+
+  test.each([
+    [ '{{ name', { from: 7, to: 7 } ],
+    [ '{{#if active}}yes', { from: 17, to: 17 } ],
+    [ '{{#if active}}yes{{/loop}}', { from: 17, to: 26 } ],
+    [ '{{/if}}', { from: 0, to: 7 } ]
+  ])('reports malformed FEELers template syntax: %s', (template, expectedError) => {
+    expect(validateTemplateSyntax(template)).toEqual([ expectedError ]);
   });
 });

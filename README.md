@@ -11,7 +11,7 @@
 {{/loop}}
 ```
 
-支持的 FEEL 能力由 Camunda 引擎决定。入口为 `new FeelersTemplate().render(template, context)`；引擎实现通过 `FeelExpressionEngine` 隔离，公共 API 不泄露 Camunda/Scala 类型。
+支持的 FEEL 能力由 Camunda 引擎决定。入口为 `FeelersTemplateService.evaluate(template, context)`；引擎实现通过 `FeelExpressionEngine` 隔离，公共 API 不泄露 Camunda/Scala 类型。
 
 ```sh
 mvn test

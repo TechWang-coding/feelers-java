@@ -1,6 +1,6 @@
 # FEELers Java 后端设计
 
-> 状态：提案；已按 Camunda 8 双引擎架构校准（尚未替换当前零依赖原型）  
+> 状态：当前实现；已按 Camunda 8 双引擎架构校准
 > 负责人：后端模板模块  
 > 最后更新：2026-08-09
 
@@ -69,37 +69,41 @@ FEEL 本身不是由模板 grammar 解析，而由 `feelin` 的 FEEL parser 解�
 
 ## 4. 推荐模块与 API
 
-建议新模块命名为 `feelers-java`，包名 `io.github.templatingsyntax.feelers`。公共 API 只暴露模板领域对象：
+模块命名为 `feelers-java`，Spring 风格实现包名为 `com.tech.feelers.templating.service`。当前公共入口为 `FeelersTemplateService`，并对齐前端 `feelers` 的三个方法：
 
 ```java
-public interface TemplateRenderer {
-  String render(String template, Map<String, Object> model, RenderOptions options);
-  CompiledTemplate compile(String template);
+public final class FeelersTemplateService {
+  public static String evaluate(String template, Map<String, Object> model);
+  public static String evaluate(String template, Map<String, Object> model, RenderOptions options);
+  public static TemplateNode parse(String template);
+  public static TemplateNode parseToSimpleTree(String template);
 }
+```
 
+前端 `parse` 返回 Lezer 原始语法树、`parseToSimpleTree` 返回简化树；Java 没有 Lezer 层，`TemplateParser` 直接构建 `TemplateNode`，所以两个 Java 方法均返回 `TemplateNode`。Java 在模板结构不合法时抛出 `TemplateException`，前端则通过 Lezer Tree 的错误节点报告问题。两端的共同边界均为模板外壳语法，不校验标签内部的 FEEL 表达式。
+
+FEEL 引擎接口保持内部扩展点，不作为模板调用方的入口：
+
+```java
 public interface FeelExpressionEngine {
-  FeelResult evaluate(String expression, Map<String, Object> variables);
-  CompiledFeel compile(String expression);
+  Object evaluate(String expression, Map<String, Object> variables);
 }
 
 public record RenderOptions(
     boolean strict,
     boolean debug,
-    UnaryOperator<String> sanitizer,
-    int maxTemplateBytes,
-    int maxLoopIterations) { }
+    UnaryOperator<String> sanitizer) { }
 ```
 
-内部实现应划分为：
+当前内部实现按以下分层组织：
 
 ```text
 feelers-java/
-  api/                 TemplateRenderer、RenderOptions、TemplateException
-  parser/              TemplateLexer、TemplateParser、SourceSpan、TemplateNode
-  render/              DefaultTemplateRenderer、RenderContext、ValueFormatter
-  feel/                FeelExpressionEngine SPI、CamundaFeelExpressionEngine
-  cache/               CompiledTemplateCache、CompiledExpressionCache
-  testkit/             前后端共享用例读取器（仅测试范围）
+  engine/              FeelExpressionEngine、CamundaFeelExpressionEngine
+  exception/           TemplateException
+  model/               RenderOptions
+  parser/              TemplateParser、TemplateNode
+  service/             FeelersTemplateService、内部 RenderContext
 ```
 
 `TemplateNode` 建议为 sealed hierarchy：`TextNode`、`InsertNode`、`IfNode`、`LoopNode`、`TopLevelFeelNode`。每个节点保留 `SourceSpan(startOffset, endOffset, line, column)`，以便错误精确定位。模板 parser 负责块匹配；FEEL adapter 负责表达式语法错误与求值错误。
@@ -109,17 +113,17 @@ feelers-java/
 ```mermaid
 sequenceDiagram
   participant Client
-  participant Renderer as TemplateRenderer
+  participant Service as FeelersTemplateService
   participant Parser as TemplateParser
   participant FEEL as Camunda FEEL Scala adapter
-  Client->>Renderer: render(template, model, options)
-  Renderer->>Parser: parse/从缓存读取 AST
+  Client->>Service: evaluate(template, model, options)
+  Service->>Parser: parse/从缓存读取 AST
   loop Insert / If / Loop node
-    Renderer->>FEEL: evaluate(expression, RenderContext variables)
-    FEEL-->>Renderer: value 或 diagnostic
-    Renderer->>Renderer: 类型策略、作用域、换行、字符串转换
+    Service->>FEEL: evaluate(expression, RenderContext variables)
+    FEEL-->>Service: value 或 diagnostic
+    Service->>Service: 类型策略、作用域、换行、字符串转换
   end
-  Renderer-->>Client: String 或 TemplateException
+  Service-->>Client: String 或 TemplateException
 ```
 
 1. 先解析整个模板并验证块标签配对；语法错误立即报错，不执行部分模板。
@@ -158,7 +162,7 @@ Camunda 8 本身在前端使用 feelin、后端使用 FEEL Scala；两者并非�
 
 ## 7. 依赖、性能与安全
 
-**依赖。** 业务 POM 仅依赖本模块；本模块内部引入 `kie-dmn-feel`。引擎特有类只允许出现在 `feel/` adapter 包。避免把完整 `kie-dmn-core` 或规则引擎带入，除非 POC 证明单独表达式 API 无法满足需求。
+**依赖。** 业务 POM 仅依赖本模块；本模块内部引入 Camunda `org.camunda.feel:feel-engine`。引擎特有类只允许出现在 `engine/` adapter 包，避免把完整 BPMN、DMN 或规则引擎带入。
 
 **缓存。** 缓存不可变模板 AST；表达式是否可缓存由 `FeelExpressionEngine` 能力声明。缓存键至少包括模板/表达式文本、引擎版本、函数集 profile 与时区 profile。缓存禁止包含请求上下文或渲染结果。
 
