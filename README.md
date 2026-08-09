@@ -2,7 +2,7 @@
 
 English: [README.en.md](README.en.md)
 
-这个工程复现了前端 [`feelers`](https://www.npmjs.com/package/feelers) 的模板处理流程。模板外壳由 Java 解析，FEEL 表达式由 Camunda 的 `feel-engine`（FEEL Scala）执行。
+这个工程复刻了前端 [`feelers`](https://www.npmjs.com/package/feelers) 的模板处理流程。模板外壳由 Java 解析，FEEL 表达式由 Camunda 的 `feel-engine`（FEEL Scala）执行。
 
 支持的模板语法：
 
@@ -20,3 +20,5 @@ mvn test
 ```
 
 测试使用 JUnit 5，并与前端 Jest 用例保持同一组模板场景：插值、条件、循环、`this`/`parent`、换行、strict/debug 与 sanitizer。
+
+设计文档：[docs/feelers-java-backend-design.md](docs/feelers-java-backend-design.md)
