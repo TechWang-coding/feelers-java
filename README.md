@@ -1,5 +1,7 @@
 # FEELers 的 Java 实现
 
+English: [README.en.md](README.en.md)
+
 这个工程复现了前端 [`feelers`](https://www.npmjs.com/package/feelers) 的模板处理流程。模板外壳由 Java 解析，FEEL 表达式由 Camunda 的 `feel-engine`（FEEL Scala）执行。
 
 支持的模板语法：

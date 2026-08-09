@@ -7,8 +7,9 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * 设定意图：解析 FEELers 的文本、插值、条件和循环标签，正确处理嵌套块。
- * 作用边界：只生成 {@link TemplateNode} 及语法位置；保留 FEEL 表达式原文，不校验也不求值。
+ * Intent: parse FEELers text, insertions, conditional tags, and loop tags with nested blocks.
+ * Boundary: produce {@link TemplateNode} values and syntax offsets only; retain FEEL expression
+ * source without validating or evaluating it.
  */
 public final class TemplateParser {
   private final String source;
@@ -72,6 +73,6 @@ public final class TemplateParser {
     return new TemplateException(message, offset);
   }
 
-  /** 设定意图：在递归解析中携带块体及关闭标签后的换行信息。作用边界：仅供 Parser 内部使用。 */
+  /** Intent: carry a parsed block and closing-tag newline state. Boundary: parser-internal only. */
   private record ParsedBlock(Block body, boolean closeHadNewline) { }
 }

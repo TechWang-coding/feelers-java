@@ -7,8 +7,10 @@ import org.camunda.feel.api.FeelEngineApi;
 import org.camunda.feel.api.FeelEngineBuilder;
 
 /**
- * 设定意图：以 Camunda FEEL Scala Engine 实现 {@link FeelExpressionEngine}，统一后端表达式语义。
- * 作用边界：负责创建并调用 Camunda 引擎，禁用外部函数；不处理模板语法、作用域和输出格式。
+ * Intent: implement {@link FeelExpressionEngine} with Camunda FEEL Scala Engine for consistent
+ * backend expression semantics.
+ * Boundary: create and invoke the Camunda engine with external functions disabled; do not handle
+ * template syntax, variable scopes, or output formatting.
  */
 public final class CamundaFeelExpressionEngine implements FeelExpressionEngine {
   private final FeelEngineApi engine;

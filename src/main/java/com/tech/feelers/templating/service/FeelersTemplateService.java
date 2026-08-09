@@ -16,8 +16,10 @@ import java.util.Map;
 import java.util.Objects;
 
 /**
- * 设定意图：作为与前端 FEELers 对齐的静态模板 API，编排模板解析、变量作用域、FEEL 求值和输出策略。
- * 作用边界：只公开 evaluate、parse 和 parseToSimpleTree；不解析 FEEL 本身，不暴露 Camunda 类型。
+ * Intent: provide a static template API aligned with front-end FEELers and coordinate parsing,
+ * variable scoping, FEEL evaluation, and output policy.
+ * Boundary: expose evaluate, parse, and parseToSimpleTree only; do not parse FEEL or expose
+ * Camunda types.
  */
 public final class FeelersTemplateService {
   private final FeelExpressionEngine feel;
@@ -30,19 +32,19 @@ public final class FeelersTemplateService {
     this.feel = Objects.requireNonNull(feel, "feel");
   }
 
-  /** 对应前端 evaluate(template, context)，使用默认渲染选项。 */
+  /** Equivalent to front-end evaluate(template, context) with default options. */
   public static String evaluate(String template, Map<String, Object> model) {
     return evaluate(template, model, RenderOptions.DEFAULT);
   }
 
-  /** 对应前端 evaluate(template, context, options)，渲染完整 FEELers 模板。 */
+  /** Equivalent to front-end evaluate(template, context, options). */
   public static String evaluate(String template, Map<String, Object> model, RenderOptions options) {
     return new FeelersTemplateService().evaluateTemplate(template, model, options);
   }
 
   /**
-   * 对应前端 parse(template)，验证模板外壳并返回 Java 模板 AST。
-   * 模板结构不合法时抛出 {@link TemplateException}。
+   * Equivalent to front-end parse(template): validate the template shell and return a Java AST.
+   * Throws {@link TemplateException} when the template structure is invalid.
    */
   public static TemplateNode parse(String template) {
     Objects.requireNonNull(template, "template");
@@ -50,8 +52,8 @@ public final class FeelersTemplateService {
   }
 
   /**
-   * 对应前端 parseToSimpleTree(template)。
-   * Java 解析器直接构建 {@link TemplateNode}，因此不再区分原始树与简化树。
+   * Equivalent to front-end parseToSimpleTree(template).
+   * The Java parser builds {@link TemplateNode} directly, so it has no separate raw-tree layer.
    */
   public static TemplateNode parseToSimpleTree(String template) {
     return parse(template);
@@ -139,8 +141,8 @@ public final class FeelersTemplateService {
   }
 
   /**
-   * 设定意图：封装单层渲染变量，并统一维护 this、parent 及兼容别名。
-   * 作用边界：只建立循环层级作用域；不负责对象映射和 FEEL 表达式求值。
+   * Intent: encapsulate one variable scope and maintain this, parent, and compatibility aliases.
+   * Boundary: build loop scopes only; do not map arbitrary objects or evaluate FEEL expressions.
    */
   private static final class RenderContext {
     private final Map<String, Object> variables;
