@@ -1,0 +1,63 @@
+{
+  "id": "basic-fields",
+  "description": "将字段数组的静态约束转换为 properties 和根 required。",
+  "formDefinition": {
+    "formKey": "employee-profile",
+    "version": 1,
+    "fields": [
+      {
+        "key": "name",
+        "type": "string",
+        "required": true,
+        "minLength": 1,
+        "maxLength": 100
+      },
+      {
+        "key": "age",
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 150
+      },
+      {
+        "key": "email",
+        "type": "string",
+        "format": "email",
+        "pattern": "^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$"
+      },
+      {
+        "key": "status",
+        "type": "string",
+        "enum": ["draft", "active", "disabled"]
+      }
+    ],
+    "conditionalRules": []
+  },
+  "expectedSchema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://schemas.example.com/forms/employee-profile/1",
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "name": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 100
+      },
+      "age": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 150
+      },
+      "email": {
+        "type": "string",
+        "format": "email",
+        "pattern": "^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$"
+      },
+      "status": {
+        "type": "string",
+        "enum": ["draft", "active", "disabled"]
+      }
+    },
+    "required": ["name"]
+  }
+}
