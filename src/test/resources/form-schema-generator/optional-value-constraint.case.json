@@ -1,0 +1,39 @@
+{
+  "id": "optional-value-constraint",
+  "description": "description 非必填，但出现时必须是不少于 50 个字符的字符串。",
+  "formDefinition": {
+    "formKey": "optional-description",
+    "version": 1,
+    "fields": [
+      {
+        "key": "title",
+        "type": "string",
+        "required": true,
+        "minLength": 1
+      },
+      {
+        "key": "description",
+        "type": "string",
+        "minLength": 50
+      }
+    ],
+    "conditionalRules": []
+  },
+  "expectedSchema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://schemas.example.com/forms/optional-description/1",
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "title": {
+        "type": "string",
+        "minLength": 1
+      },
+      "description": {
+        "type": "string",
+        "minLength": 50
+      }
+    },
+    "required": ["title"]
+  }
+}

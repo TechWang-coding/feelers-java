@@ -1,0 +1,83 @@
+{
+  "id": "conditional-and",
+  "description": "FEEL and 编译为 allOf；年龄小于 18 岁且性别为 Female 时 description 必填。",
+  "formDefinition": {
+    "formKey": "minor-description",
+    "version": 2,
+    "fields": [
+      {
+        "key": "age",
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 150
+      },
+      {
+        "key": "sex",
+        "type": "string",
+        "enum": ["Male", "Female"]
+      },
+      {
+        "key": "description",
+        "type": "string",
+        "minLength": 50
+      }
+    ],
+    "conditionalRules": [
+      {
+        "id": "minor-female-requires-description",
+        "when": "age < 18 and sex = \"Female\"",
+        "then": {
+          "required": ["description"]
+        }
+      }
+    ]
+  },
+  "expectedSchema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://schemas.example.com/forms/minor-description/2",
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "age": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 150
+      },
+      "sex": {
+        "type": "string",
+        "enum": ["Male", "Female"]
+      },
+      "description": {
+        "type": "string",
+        "minLength": 50
+      }
+    },
+    "allOf": [
+      {
+        "if": {
+          "allOf": [
+            {
+              "required": ["age"],
+              "properties": {
+                "age": {
+                  "exclusiveMaximum": 18
+                }
+              }
+            },
+            {
+              "required": ["sex"],
+              "properties": {
+                "sex": {
+                  "const": "Female"
+                }
+              }
+            }
+          ]
+        },
+        "then": {
+          "required": ["description"]
+        }
+      }
+    ]
+  }
+}
