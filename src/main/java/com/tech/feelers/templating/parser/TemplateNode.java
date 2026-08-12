@@ -7,7 +7,9 @@ import java.util.List;
 
 /**
  * Intent: represent the FEELers template shell as an immutable AST and separate parsing from
- * evaluation.
+ * evaluation. Directive parsing uses a node-local strategy pattern: If, Loop, and Insert each
+ * own the strategy that recognizes and constructs their directive, while TemplateParser scans the
+ * source, routes directives, and controls recursive block completion.
  * Boundary: retain tag structure, expression source, and offsets; do not validate or evaluate
  * FEEL, or decide output content.
  */
