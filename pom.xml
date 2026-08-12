@@ -10,8 +10,6 @@
     <maven.compiler.release>17</maven.compiler.release>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <camunda.feel.version>1.22.0</camunda.feel.version>
-    <networknt.json-schema.version>2.0.4</networknt.json-schema.version>
-    <jackson.version>2.22.1</jackson.version>
     <junit.version>5.13.4</junit.version>
   </properties>
   <dependencies>
@@ -19,16 +17,6 @@
       <groupId>org.camunda.feel</groupId>
       <artifactId>feel-engine</artifactId>
       <version>${camunda.feel.version}</version>
-    </dependency>
-    <dependency>
-      <groupId>com.networknt</groupId>
-      <artifactId>json-schema-validator</artifactId>
-      <version>${networknt.json-schema.version}</version>
-    </dependency>
-    <dependency>
-      <groupId>com.fasterxml.jackson.core</groupId>
-      <artifactId>jackson-databind</artifactId>
-      <version>${jackson.version}</version>
     </dependency>
     <dependency>
       <groupId>org.junit.jupiter</groupId>

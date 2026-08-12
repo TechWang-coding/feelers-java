@@ -22,3 +22,5 @@ mvn test
 The tests use JUnit 5 and mirror the front-end Jest scenarios: insertion, conditions, loops, `this`/`parent`, newlines, strict/debug behavior, and sanitization.
 
 Design document: [docs/feelers-java-backend-design.en.md](docs/feelers-java-backend-design.en.md)
+
+Code conventions: [docs/code-conventions.en.md](docs/code-conventions.en.md)
