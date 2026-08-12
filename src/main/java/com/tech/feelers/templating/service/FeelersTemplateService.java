@@ -66,15 +66,26 @@ public final class FeelersTemplateService {
   }
 
   private String renderNode(TemplateNode node, RenderContext context, RenderOptions options) {
-    if (node instanceof TemplateNode.Text text) return text.value();
-    if (node instanceof TemplateNode.Insert insert) return stringify(insert.expression(), context, options, insert.offset());
-    if (node instanceof TemplateNode.TopLevelFeel expression) return stringify(expression.expression(), context, options, expression.offset());
-    if (node instanceof TemplateNode.Block block) {
+    if (node instanceof TemplateNode.Text) {
+      TemplateNode.Text text = (TemplateNode.Text) node;
+      return text.value();
+    }
+    if (node instanceof TemplateNode.Insert) {
+      TemplateNode.Insert insert = (TemplateNode.Insert) node;
+      return stringify(insert.expression(), context, options, insert.offset());
+    }
+    if (node instanceof TemplateNode.TopLevelFeel) {
+      TemplateNode.TopLevelFeel expression = (TemplateNode.TopLevelFeel) node;
+      return stringify(expression.expression(), context, options, expression.offset());
+    }
+    if (node instanceof TemplateNode.Block) {
+      TemplateNode.Block block = (TemplateNode.Block) node;
       StringBuilder rendered = new StringBuilder();
       for (TemplateNode child : block.children()) rendered.append(renderNode(child, context, options));
       return rendered.toString();
     }
-    if (node instanceof TemplateNode.If conditional) {
+    if (node instanceof TemplateNode.If) {
+      TemplateNode.If conditional = (TemplateNode.If) node;
       Object value = evaluate(conditional.condition(), context, options, conditional.offset());
       if (options.strict() && !(value instanceof Boolean)) {
         return error("FEEL expression " + conditional.condition() + " expected to evaluate to a boolean", conditional.offset(), options);
@@ -83,7 +94,8 @@ public final class FeelersTemplateService {
       String result = renderNode(conditional.body(), context, options);
       return conditional.closeHadNewline() && !result.endsWith("\n") ? result + "\n" : result;
     }
-    if (node instanceof TemplateNode.Loop loop) {
+    if (node instanceof TemplateNode.Loop) {
+      TemplateNode.Loop loop = (TemplateNode.Loop) node;
       Object value = evaluate(loop.collection(), context, options, loop.offset());
       if (options.strict() && !isCollectionLike(value)) {
         return error("FEEL expression " + loop.collection() + " expected to evaluate to an array", loop.offset(), options);
@@ -122,14 +134,14 @@ public final class FeelersTemplateService {
   }
 
   private List<Object> toItems(Object value) {
-    if (value instanceof Collection<?> collection) return new ArrayList<>(collection);
+    if (value instanceof Collection<?>) return new ArrayList<Object>((Collection<?>) value);
     if (value != null && value.getClass().isArray()) {
       int length = Array.getLength(value);
       List<Object> result = new ArrayList<>(length);
       for (int i = 0; i < length; i++) result.add(Array.get(value, i));
       return result;
     }
-    return value == null ? List.of() : List.of(value);
+    return value == null ? Collections.<Object>emptyList() : Collections.singletonList(value);
   }
 
   private static boolean isCollectionLike(Object value) {
@@ -156,7 +168,8 @@ public final class FeelersTemplateService {
     }
 
     RenderContext child(Object item) {
-      return build(item instanceof Map<?, ?> map ? map : Map.of(), variables, item);
+      Map<?, ?> itemValues = item instanceof Map<?, ?> ? (Map<?, ?>) item : Collections.emptyMap();
+      return build(itemValues, variables, item);
     }
 
     private static RenderContext build(Map<?, ?> values, Map<String, Object> parent, Object thisValue) {

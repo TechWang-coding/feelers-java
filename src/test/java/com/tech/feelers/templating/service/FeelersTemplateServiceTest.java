@@ -4,6 +4,7 @@ import com.tech.feelers.templating.exception.TemplateException;
 import com.tech.feelers.templating.model.RenderOptions;
 import com.tech.feelers.templating.parser.TemplateNode;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.List;
@@ -65,6 +66,9 @@ class FeelersTemplateServiceTest {
   void supportsNestedBlocksAndSanitizers() {
     Map<String, Object> context = Map.of("items", List.of(Map.of("name", "A", "done", true), Map.of("name", "B", "done", false)));
     assertEquals("✓ A\n", FeelersTemplateService.evaluate("{{#loop items}}{{#if done}}✓ {{name}}\n{{/if}}{{/loop}}", context));
+    assertEquals("- A\n- B\n", FeelersTemplateService.evaluate(
+        "{{#if enabled}}{{#loop items}}- {{this}}\n{{/loop}}{{/if}}",
+        Map.of("enabled", true, "items", List.of("A", "B"))));
 
     RenderOptions options = new RenderOptions(false, false, value -> value.replace("<", "&lt;"));
     assertEquals("<p>&lt;script></p>", FeelersTemplateService.evaluate("<p>{{ value }}</p>", Map.of("value", "<script>"), options));
@@ -98,5 +102,16 @@ class FeelersTemplateServiceTest {
     TemplateNode parsed = FeelersTemplateService.parse("{{#if active}}yes{{/if}}");
     assertEquals(parsed, FeelersTemplateService.parseToSimpleTree("{{#if active}}yes{{/if}}"));
     assertThrows(TemplateException.class, () -> FeelersTemplateService.parse("{{#if active}}yes"));
+  }
+
+  @Test
+  void keepsAstNodeValueEqualityScopedToTheConcreteNodeType() {
+    TemplateNode.Insert insert = new TemplateNode.Insert("name", 0);
+    TemplateNode.Insert equivalentInsert = new TemplateNode.Insert("name", 0);
+    TemplateNode.TopLevelFeel topLevelFeel = new TemplateNode.TopLevelFeel("name", 0);
+
+    assertEquals(insert, equivalentInsert);
+    assertEquals(insert.hashCode(), equivalentInsert.hashCode());
+    assertFalse(insert.equals(topLevelFeel));
   }
 }

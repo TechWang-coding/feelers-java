@@ -1,6 +1,7 @@
 package com.tech.feelers.templating.parser;
 
 import static com.tech.feelers.templating.parser.TemplateNode.Block;
+import static com.tech.feelers.templating.parser.TemplateNode.BlockResult;
 
 import com.tech.feelers.templating.exception.TemplateException;
 import java.util.ArrayList;
@@ -14,6 +15,15 @@ import java.util.List;
 public final class TemplateParser {
   private final String source;
   private int position;
+  private final TemplateNode.ParseContext parseContext = new TemplateNode.ParseContext() {
+    @Override public BlockResult parseBlock(String expectedClose) {
+      return TemplateParser.this.parseBlock(expectedClose);
+    }
+
+    @Override public void consumeNewline() {
+      TemplateParser.this.consumeNewline();
+    }
+  };
 
   public TemplateParser(String source) {
     this.source = source;
@@ -21,10 +31,10 @@ public final class TemplateParser {
 
   public TemplateNode parse() {
     if (source.startsWith("=")) return new TemplateNode.TopLevelFeel(source.substring(1), 0);
-    return parseBlock(null).body;
+    return parseBlock(null).body();
   }
 
-  private ParsedBlock parseBlock(String expectedClose) {
+  private BlockResult parseBlock(String expectedClose) {
     List<TemplateNode> nodes = new ArrayList<>();
     while (position < source.length()) {
       int open = source.indexOf("{{", position);
@@ -43,25 +53,13 @@ public final class TemplateParser {
         String name = directive.substring(1).trim();
         boolean newline = consumeNewline();
         if (expectedClose == null || !expectedClose.equals(name)) throw syntax("Unexpected closing {{/" + name + "}}", open);
-        return new ParsedBlock(new Block(List.copyOf(nodes)), newline);
+        return new BlockResult(new Block(nodes), newline);
       }
-      if (directive.startsWith("#if ")) {
-        consumeNewline();
-        ParsedBlock body = parseBlock("if");
-        nodes.add(new TemplateNode.If(rawDirective.substring(rawDirective.indexOf("#if ") + 4), body.body, body.closeHadNewline, open));
-      } else if (directive.startsWith("#loop ")) {
-        consumeNewline();
-        ParsedBlock body = parseBlock("loop");
-        nodes.add(new TemplateNode.Loop(rawDirective.substring(rawDirective.indexOf("#loop ") + 6), body.body, body.closeHadNewline, open));
-      } else if (!directive.isEmpty() && !directive.equals("=")) {
-        String expression = rawDirective.stripLeading().startsWith("=")
-            ? rawDirective.substring(rawDirective.indexOf('=') + 1)
-            : rawDirective;
-        nodes.add(new TemplateNode.Insert(expression, open));
-      }
+      TemplateNode node = TemplateNode.parseDirective(parseContext, rawDirective, directive, open);
+      if (node != null) nodes.add(node);
     }
     if (expectedClose != null) throw syntax("Missing closing {{/" + expectedClose + "}}", position);
-    return new ParsedBlock(new Block(List.copyOf(nodes)), false);
+    return new BlockResult(new Block(nodes), false);
   }
 
   private boolean consumeNewline() {
@@ -73,6 +71,4 @@ public final class TemplateParser {
     return new TemplateException(message, offset);
   }
 
-  /** Intent: carry a parsed block and closing-tag newline state. Boundary: parser-internal only. */
-  private record ParsedBlock(Block body, boolean closeHadNewline) { }
 }
