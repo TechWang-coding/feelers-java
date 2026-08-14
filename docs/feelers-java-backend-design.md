@@ -77,12 +77,12 @@ FEEL 本身不是由模板 grammar 解析，而由 `feelin` 的 FEEL parser 解�
 public final class FeelersTemplateService {
   public static String evaluate(String template, Map<String, Object> model);
   public static String evaluate(String template, Map<String, Object> model, RenderOptions options);
-  public static TemplateNode parse(String template);
-  public static TemplateNode parseToSimpleTree(String template);
+  public static FeelersTemplateNode parse(String template);
+  public static FeelersTemplateNode parseToSimpleTree(String template);
 }
 ```
 
-前端 `parse` 返回 Lezer 原始语法树、`parseToSimpleTree` 返回简化树；Java 没有 Lezer 层，`TemplateParser` 直接构建 `TemplateNode`，所以两个 Java 方法均返回 `TemplateNode`。Java 在模板结构不合法时抛出 `TemplateException`，前端则通过 Lezer Tree 的错误节点报告问题。两端的共同边界均为模板外壳语法，不校验标签内部的 FEEL 表达式。
+前端 `parse` 返回 Lezer 原始语法树、`parseToSimpleTree` 返回简化树；Java 没有 Lezer 层，`FeelersTemplateParser` 直接构建 `FeelersTemplateNode`，所以两个 Java 方法均返回 `FeelersTemplateNode`。Java 在模板结构不合法时抛出 `TemplateException`，前端则通过 Lezer Tree 的错误节点报告问题。两端的共同边界均为模板外壳语法，不校验标签内部的 FEEL 表达式。
 
 FEEL 引擎接口保持内部扩展点，不作为模板调用方的入口：
 
@@ -91,10 +91,13 @@ public interface FeelExpressionEngine {
   Object evaluate(String expression, Map<String, Object> variables);
 }
 
-public record RenderOptions(
-    boolean strict,
-    boolean debug,
-    UnaryOperator<String> sanitizer) { }
+@Value
+@Accessors(fluent = true)
+public class RenderOptions {
+  private final boolean strict;
+  private final boolean debug;
+  private final UnaryOperator<String> sanitizer;
+}
 ```
 
 当前内部实现按以下分层组织：
@@ -103,12 +106,15 @@ public record RenderOptions(
 feelers-java/
   engine/              FeelExpressionEngine、CamundaFeelExpressionEngine
   exception/           TemplateException
-  model/               RenderOptions
-  parser/              TemplateParser、TemplateNode
-  service/             FeelersTemplateService、内部 RenderContext
+  entity/              BlockResult
+  parser/              FeelersTemplateParser
+    feelers/           指令策略
+      context/          ParseContext、FeelersTemplateParseContext、RenderContext
+      nodes/            FeelersTemplateNode、AST 节点、RenderOptions
+  service/             FeelersTemplateService、FeelEvaluatorService
 ```
 
-`TemplateNode` 建议为 sealed hierarchy：`TextNode`、`InsertNode`、`IfNode`、`LoopNode`、`TopLevelFeelNode`。每个节点保留 `SourceSpan(startOffset, endOffset, line, column)`，以便错误精确定位。模板 parser 负责块匹配；FEEL adapter 负责表达式语法错误与求值错误。
+`FeelersTemplateParser` 位于 `parser` 根包，负责模板扫描和策略选择。`parser.feelers` 包包含指令策略；其 `context` 子包保存递归解析和渲染所需上下文，`nodes` 子包包含 `FeelersTemplateNode`、`TextNode`、`InsertNode`、`BlockNode`、`IfNode`、`LoopNode`、`TopLevelFeelNode` 和 `RenderOptions`。每个节点使用独立文件并拥有自己的 `render(FeelExpressionEngine, RenderContext, RenderOptions)` 方法。节点保留表达式偏移量，以便错误定位。
 
 ## 5. 渲染流程
 
@@ -116,7 +122,7 @@ feelers-java/
 sequenceDiagram
   participant Client
   participant Service as FeelersTemplateService
-  participant Parser as TemplateParser
+  participant Parser as FeelersTemplateParser
   participant FEEL as Camunda FEEL Scala adapter
   Client->>Service: evaluate(template, model, options)
   Service->>Parser: parse/从缓存读取 AST
@@ -158,7 +164,7 @@ Camunda 8 本身在前端使用 feelin、后端使用 FEEL Scala；两者并非�
 | 目标 | 设计覆盖 | 验证方式 | 尚未完成的实施项 |
 | --- | --- | --- | --- |
 | 1. 两端源于 FEEL，并采用 Camunda 库 | **覆盖**：前端 `feelin`，后端 `feel-engine`；统一 `camunda-feelers-core-v1` Profile | 依赖锁定与 FEEL Profile 向量 | 接入 Camunda adapter、锁定实际 Camunda 8 版本 |
-| 2. 后端参考前端设计解析模板 | **覆盖**：前端的 parser → AST → interpreter → FEEL engine 四层映射为 Java `parser/`、`render/`、`feel/` | 嵌套块、源位置、换行与错误用例 | 实现 `TemplateParser` 与 sealed AST |
+| 2. 后端参考前端设计解析模板 | **覆盖**：前端的 parser → AST → interpreter → FEEL engine 四层映射为 Java `parser/`、`service/`、`engine/` | 嵌套块、源位置、换行与错误用例 | 将偏移量扩展为行/列信息 |
 | 3. 两端测试尽量一致 | **覆盖**：JSON 向量为唯一测试源，Jest/JUnit 同时读取 | CI 对比结果与错误码 | 将当前 13 个 Jest 用例迁移为 JSON，补 JUnit 参数化测试 |
 | 4. Camunda 8 外围系统的一套表达式语言 | **覆盖**：固定模板外壳和 FEEL Profile，禁止单端/专有扩展进入该 Profile | 模板 API 校验 profile，发布门禁 | 建立 profile 注册表、迁移与弃用流程 |
 

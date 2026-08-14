@@ -10,7 +10,7 @@ The following keywords are prohibited in production and test code:
 - `permits`
 - `record`
 
-For immutable value objects, use a `final class`, `private final` fields, an explicit constructor, and accessors. When value equality is required, also implement `equals`, `hashCode`, and `toString`.
+For immutable value objects, use Lombok `@Value` with `@Accessors(fluent = true)`. This preserves the project's fluent API naming convention (`value()`, not `getValue()`) while generating constructors, accessors, `equals`, `hashCode`, and `toString`. Do not manually implement those methods. A custom constructor is allowed when defensive copying or validation is required.
 
 Use ordinary interfaces for type contracts; do not restrict their implementation set with `sealed` or `permits`.
 

@@ -1,5 +1,8 @@
 package com.tech.feelers.templating.exception;
 
+import lombok.Getter;
+import lombok.experimental.Accessors;
+
 /**
  * Intent: provide one template-domain exception without exposing parser or Camunda exception types.
  * Boundary: retain a message, template offset, and optional cause; do not model engine-specific
@@ -7,6 +10,9 @@ package com.tech.feelers.templating.exception;
  */
 public final class TemplateException extends RuntimeException {
   private static final long serialVersionUID = 1L;
+
+  @Getter
+  @Accessors(fluent = true)
   private final int offset;
 
   public TemplateException(String message, int offset) {
@@ -19,7 +25,4 @@ public final class TemplateException extends RuntimeException {
     this.offset = offset;
   }
 
-  public int offset() {
-    return offset;
-  }
 }
