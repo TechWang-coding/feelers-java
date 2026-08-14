@@ -1,8 +1,10 @@
 package com.tech.feelers.templating.service;
 
 import com.tech.feelers.templating.exception.TemplateException;
-import com.tech.feelers.templating.model.RenderOptions;
-import com.tech.feelers.templating.parser.TemplateNode;
+import com.tech.feelers.templating.parser.feelers.nodes.FeelersTemplateNode;
+import com.tech.feelers.templating.parser.feelers.nodes.InsertNode;
+import com.tech.feelers.templating.parser.feelers.nodes.RenderOptions;
+import com.tech.feelers.templating.parser.feelers.nodes.TopLevelFeelNode;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -43,10 +45,11 @@ class FeelersTemplateServiceTest {
 
   @Test
   void rendersConditionalSectionsAndBlockNewlines() {
-    assertEquals("There are multiple users", FeelersTemplateService.evaluate(
-        "{{#if count(users) > 1}}There are multiple users{{/if}}", Map.of("users", List.of("Bob", "Dave"))));
+    assertEquals("Test: There are multiple users", FeelersTemplateService.evaluate(
+        "Test: {{    #if count(users) > 1}}There are multiple users{{/if}}", Map.of("users", List.of("Bob", "Dave"))));
     assertEquals("", FeelersTemplateService.evaluate(
-        "{{#if count(users) > 1}}There are multiple users{{/if}}", Map.of("users", List.of("Bob"))));
+        "{{    #if count(users) > 1}}There are multiple users{{/if}}", Map.of("users", List.of("Bob"))));
+    assertEquals("visible", FeelersTemplateService.evaluate("{{   #if enabled}}visible{{/if}}", Map.of("enabled", true)));
     assertEquals("visible\nafter", FeelersTemplateService.evaluate("{{#if enabled}}\nvisible\n{{/if}}\nafter", Map.of("enabled", true)));
   }
 
@@ -54,6 +57,8 @@ class FeelersTemplateServiceTest {
   void loopsWithThisAndParent() {
     assertEquals("- surfing\n- coding\n", FeelersTemplateService.evaluate(
         "{{#loop hobbies}}\n- {{this}}\n{{/loop}}", Map.of("hobbies", List.of("surfing", "coding"))));
+    assertEquals("surfingcoding", FeelersTemplateService.evaluate(
+        "{{   #loop hobbies}}{{this}}{{/loop}}", Map.of("hobbies", List.of("surfing", "coding"))));
 
     Map<String, Object> context = Map.of(
         "title", "Tasks",
@@ -99,16 +104,16 @@ class FeelersTemplateServiceTest {
     assertEquals("{{ feel expression  1 +  couldn't be evaluated }}",
         FeelersTemplateService.evaluate("{{ 1 + }}", Map.of(), debug));
 
-    TemplateNode parsed = FeelersTemplateService.parse("{{#if active}}yes{{/if}}");
+    FeelersTemplateNode parsed = FeelersTemplateService.parse("{{#if active}}yes{{/if}}");
     assertEquals(parsed, FeelersTemplateService.parseToSimpleTree("{{#if active}}yes{{/if}}"));
     assertThrows(TemplateException.class, () -> FeelersTemplateService.parse("{{#if active}}yes"));
   }
 
   @Test
   void keepsAstNodeValueEqualityScopedToTheConcreteNodeType() {
-    TemplateNode.Insert insert = new TemplateNode.Insert("name", 0);
-    TemplateNode.Insert equivalentInsert = new TemplateNode.Insert("name", 0);
-    TemplateNode.TopLevelFeel topLevelFeel = new TemplateNode.TopLevelFeel("name", 0);
+    InsertNode insert = new InsertNode("name", 0);
+    InsertNode equivalentInsert = new InsertNode("name", 0);
+    TopLevelFeelNode topLevelFeel = new TopLevelFeelNode("name", 0);
 
     assertEquals(insert, equivalentInsert);
     assertEquals(insert.hashCode(), equivalentInsert.hashCode());

@@ -77,12 +77,12 @@ The module is named `feelers-java`; the Spring-style implementation package is `
 public final class FeelersTemplateService {
   public static String evaluate(String template, Map<String, Object> model);
   public static String evaluate(String template, Map<String, Object> model, RenderOptions options);
-  public static TemplateNode parse(String template);
-  public static TemplateNode parseToSimpleTree(String template);
+  public static FeelersTemplateNode parse(String template);
+  public static FeelersTemplateNode parseToSimpleTree(String template);
 }
 ```
 
-Front-end `parse` returns a raw Lezer tree and `parseToSimpleTree` returns a simplified tree. Java has no Lezer layer: `TemplateParser` constructs `TemplateNode` directly, so both Java methods return `TemplateNode`. Java throws `TemplateException` for invalid template structure; the front end reports Lezer Tree error nodes. The shared boundary is the template shell, not the FEEL expression inside a tag.
+Front-end `parse` returns a raw Lezer tree and `parseToSimpleTree` returns a simplified tree. Java has no Lezer layer: `FeelersTemplateParser` constructs `FeelersTemplateNode` directly, so both Java methods return `FeelersTemplateNode`. Java throws `TemplateException` for invalid template structure; the front end reports Lezer Tree error nodes. The shared boundary is the template shell, not the FEEL expression inside a tag.
 
 `FeelExpressionEngine` is an internal extension point, not a caller entry point:
 
@@ -91,10 +91,13 @@ public interface FeelExpressionEngine {
   Object evaluate(String expression, Map<String, Object> variables);
 }
 
-public record RenderOptions(
-    boolean strict,
-    boolean debug,
-    UnaryOperator<String> sanitizer) { }
+@Value
+@Accessors(fluent = true)
+public class RenderOptions {
+  private final boolean strict;
+  private final boolean debug;
+  private final UnaryOperator<String> sanitizer;
+}
 ```
 
 The current implementation is organized as follows:
@@ -103,12 +106,15 @@ The current implementation is organized as follows:
 feelers-java/
   engine/              FeelExpressionEngine, CamundaFeelExpressionEngine
   exception/           TemplateException
-  model/               RenderOptions
-  parser/              TemplateParser, TemplateNode
-  service/             FeelersTemplateService, internal RenderContext
+  entity/              BlockResult
+  parser/              FeelersTemplateParser
+    feelers/           Directive strategies
+      context/          ParseContext, FeelersTemplateParseContext, RenderContext
+      nodes/            FeelersTemplateNode, AST nodes, RenderOptions
+  service/             FeelersTemplateService, FeelEvaluatorService
 ```
 
-`TemplateNode` is a sealed hierarchy: `Text`, `Insert`, `If`, `Loop`, and `TopLevelFeel`. Nodes retain source offsets for diagnostics. The template parser matches blocks; the FEEL adapter evaluates expressions and reports expression failures.
+`FeelersTemplateParser` is in the root `parser` package and scans templates while selecting strategies. The `parser.feelers` package contains directive strategies; its `context` subpackage holds recursive parsing and rendering contexts, while its `nodes` subpackage contains `FeelersTemplateNode`, `TextNode`, `InsertNode`, `BlockNode`, `IfNode`, `LoopNode`, `TopLevelFeelNode`, and `RenderOptions`. Each node is in its own file with its own `render(FeelExpressionEngine, RenderContext, RenderOptions)` method. Nodes retain expression offsets for diagnostics.
 
 ## 5. Evaluation flow
 
@@ -116,7 +122,7 @@ feelers-java/
 sequenceDiagram
   participant Client
   participant Service as FeelersTemplateService
-  participant Parser as TemplateParser
+  participant Parser as FeelersTemplateParser
   participant FEEL as Camunda FEEL Scala adapter
   Client->>Service: evaluate(template, model, options)
   Service->>Parser: parse / read cached AST
