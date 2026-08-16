@@ -26,10 +26,7 @@ import { createCalendarDayFunction } from './functions/CalendarDay';
  * application startup, then reuse this instance for expression evaluation.
  */
 export class FeelExpressionEngine {
-  private static readonly INSTANCE = FeelExpressionEngine.create([
-    createBusinessDayFunction(),
-    createCalendarDayFunction()
-  ]);
+  private static readonly INSTANCE = FeelExpressionEngine.create();
 
   private readonly functions: Readonly<Record<string, FeelFunctionHandler>>;
   private readonly functionNames: ReadonlySet<string>;
@@ -48,17 +45,22 @@ export class FeelExpressionEngine {
   }
 
   static create(
-    definitions: readonly FeelFunctionDefinition[] = [],
+    extraFunctions: readonly FeelFunctionDefinition[] = [],
     options: FeelExpressionEngineOptions = {}
   ): FeelExpressionEngine {
     const registry = new FeelFunctionRegistry();
-    definitions.forEach((definition) => registry.register(definition));
+    [ ...FeelExpressionEngine.createDefaultFunctions(), ...extraFunctions ]
+      .forEach((definition) => registry.register(definition));
     return new FeelExpressionEngine(registry.freeze(), options);
   }
 
   /** Returns the application-wide engine with all built-in business functions registered. */
   static getInstance(): FeelExpressionEngine {
     return FeelExpressionEngine.INSTANCE;
+  }
+
+  private static createDefaultFunctions(): readonly FeelFunctionDefinition[] {
+    return [ createBusinessDayFunction(), createCalendarDayFunction() ];
   }
 
   evaluate(expression: string, variables: FeelVariables = {}): EvaluationResult<unknown> {

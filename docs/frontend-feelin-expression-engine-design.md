@@ -1,8 +1,8 @@
 # 前端 FEEL 表达式引擎与自定义函数设计
 
-> 状态：提案
+> 状态：当前实现
 > 范围：前端 `@bpmn-io/feelin` 的表达式求值扩展
-> 最后更新：2026-08-14
+> 最后更新：2026-08-16
 
 ## 1. 背景与目标
 
@@ -12,7 +12,7 @@
 
 - 基于 feelin，不重新实现 FEEL parser 或 interpreter；
 - 支持注册 N 个经应用批准的自定义函数；
-- 对调用方提供 `evaluate` 和 `unaryTest` 两个求值接口；
+- 对调用方提供 `evaluate`、`unaryTest`、`validate` 和 `validateUnaryTest` 四个接口；
 - 禁止自定义函数覆盖 feelin 的内置函数；
 - 调用方传入的变量不得覆盖已注册函数；
 - 将函数执行异常转换为与 feelin 兼容的 warning 结果，而不是让异常中断页面；
@@ -24,14 +24,16 @@
 
 ```mermaid
 flowchart TD
-  A["应用启动"] --> B["FunctionRegistry 注册并校验函数"]
-  B --> C["冻结函数注册表"]
-  D["调用方：表达式 + 变量"] --> E["FeelExpressionEngine"]
-  C --> E
-  E --> F["合成上下文：variables + registered functions"]
-  F --> G["@bpmn-io/feelin"]
-  G --> H["EvaluationResult: value + warnings"]
-  H --> I["调用方策略：展示、拦截或记录"]
+  A["应用启动"] --> B["FeelExpressionEngine 单例注册默认函数"]
+  A --> C["可选：create(...) 注册专用函数集"]
+  B --> D["FunctionRegistry 校验并冻结"]
+  C --> D
+  E["调用方：表达式 + 变量"] --> F["FeelExpressionEngine"]
+  D --> F
+  F --> G["合成上下文：variables + registered functions"]
+  G --> H["@bpmn-io/feelin"]
+  H --> I["EvaluationResult 或 SyntaxValidationResult"]
+  I --> J["调用方策略：展示、拦截或记录"]
 ```
 
 职责边界如下：
@@ -47,39 +49,51 @@ flowchart TD
 
 函数仅允许在应用启动阶段注册。初始化完成后，注册表和引擎均不可变；请求处理期间不得增删或替换函数。这使每个应用实例拥有稳定、可测试的函数集，也避免并发请求看到不一致的表达式语义。
 
+应用默认使用单例。`getInstance()` 在初始化时直接注册 `businessDay` 与 `calendarDay`，两者使用默认的周末工作日历：
+
+```ts
+const engine = FeelExpressionEngine.getInstance();
+```
+
+`create(extraFunctions)` 是高级模式。它创建一个独立引擎，但始终包含与单例一致的默认函数集，并在其上附加临时业务函数。默认函数不可被同名扩展覆盖，以保证标准语义稳定。
+
 推荐的调用形态：
 
 ```ts
-const engine = FeelExpressionEngine.create([
-  {
-    name: 'businessDay',
-    args: ['baseDate', 'offset'],
-    handler: businessDay
-  },
-  {
-    name: 'taxInclusive',
-    args: ['amount', 'rate'],
-    handler: taxInclusive
-  }
-]);
+const engine = FeelExpressionEngine.getInstance();
 
-const result = engine.evaluate('taxInclusive(price, 0.13)', { price: 100 });
+const result = engine.evaluate('businessDay("2026-08-14", 1)');
 const match = engine.unaryTest('> businessDay(validationToday, 3)', {
   '?': dueDate,
   validationToday
 });
+const syntax = engine.validate('startDate < endDate');
+const unarySyntax = engine.validateUnaryTest('>= businessDay("2026-08-14", 1)');
 ```
 
 引擎接口：
 
 ```ts
-interface FeelExpressionEngine {
+class FeelExpressionEngine {
   evaluate(expression: string, variables?: FeelVariables): EvaluationResult<unknown>;
   unaryTest(expression: string, variables?: FeelVariables): EvaluationResult<boolean | null>;
+  validate(expression: string, variables?: FeelVariables): FeelSyntaxValidationResult;
+  validateUnaryTest(expression: string, variables?: FeelVariables): FeelSyntaxValidationResult;
 }
 ```
 
 `evaluate` 用于完整 FEEL 表达式。`unaryTest` 用于 FEEL unary test，例如 `> 10`、`[1..5]` 或 `not("closed")`；待比较值由变量 `?` 提供。
+
+`validate` 与 `validateUnaryTest` 分别通过 feelin 的 `parseExpression`、`parseUnaryTests` 解析表达式，并收集 Lezer 的错误节点，返回：
+
+```ts
+interface FeelSyntaxValidationResult {
+  valid: boolean;
+  errors: readonly { from: number; to: number }[];
+}
+```
+
+这两个接口只校验语法，不执行表达式，也不判断变量、函数或函数参数在运行时是否可用；后者仍由 `evaluate` / `unaryTest` 返回的 `warnings` 表示。
 
 公开接口返回 feelin 原生同构的 `EvaluationResult`，不把 warning 自动改写为异常。表单校验可以将 warnings 视为配置错误，预览界面也可以同时显示 `value` 和诊断信息。
 
@@ -106,7 +120,7 @@ interface FeelFunctionDefinition {
 4. `name` 不得与 feelin 的任何内置函数重名，也不得使用为引擎保留的名称。
 5. 注册成功后，将 `args` 映射到 feelin 函数的 `$args` 属性，以支持 `fn(amount: 100, rate: 0.13)` 形式的命名参数。
 
-内置函数名清单应随当前锁定的 feelin 版本维护并受测试保护。升级 feelin 时，必须重新校验新版本的内置函数集，防止已注册业务函数与新增内置函数产生冲突。
+内置函数名清单位于 `FeelEngineStatic.BUILTIN_FUNCTION_NAMES`，并随当前锁定的 feelin 版本维护。当前测试覆盖内置函数冲突和变量覆盖保护；升级 feelin 时，必须显式审查并更新完整清单，防止已注册业务函数与新增内置函数产生冲突。
 
 每次调用的上下文按照以下优先级合成：
 
@@ -115,6 +129,27 @@ interface FeelFunctionDefinition {
 ```
 
 其中后两层不可被调用方变量覆盖。若输入模型包含同名字段，表达式中该名称仍指向已注册函数；模型字段应由调用方在入参校验中改名或拒绝。
+
+### 4.1 默认日期函数
+
+默认单例注册以下函数，函数实现位于 `src/FeelExpressionEngine/functions/`，并遵循一个函数一个文件：
+
+| 函数 | 参数 | 行为 |
+| --- | --- | --- |
+| `businessDay` | `baseDate`, `offset` | 跳过周末及配置的节假日；`baseDate` 可为 ISO 日期字符串或 FEEL date；正数向后、负数向前，基准日期不计入偏移。 |
+| `calendarDay` | `baseDate`, `offset` | 不跳过周末或节假日；`baseDate` 必须为 FEEL date；正数向后、负数向前。 |
+
+两个函数的 `offset` 均必须为整数；`offset = 0` 返回原日期。函数返回 FEEL date，因此可直接参与 FEEL 日期比较和 unary test。
+
+### 4.2 模块结构
+
+```text
+src/FeelExpressionEngine/
+  FeelExpressionEngine.ts       # 单例、create、四个公开接口
+  common/                       # 类型、静态内置函数清单、注册表、内部异常
+  functions/                    # 一个 FEEL 自定义函数一个文件
+  utils/                        # 无状态校验、warning 和语法树处理函数
+```
 
 ## 5. 函数执行失败与 diagnostics
 
@@ -152,7 +187,7 @@ handler 抛出异常
 
 feelin 未向自定义函数暴露当前 AST 节点或 warning 收集器，因此第一版不能可靠得到精确的函数调用位置，使用整个表达式范围。若诊断定位成为需求，可在引擎层解析表达式 AST 并定位函数调用节点；这属于后续增强，不能通过猜测字符串位置实现。
 
-日志记录使用注入的 `FeelExpressionLogger` 端口，而非 `console`。日志至少应包含函数名、表达式 ID（如有）、错误类型和关联 ID；默认不记录完整变量值，避免敏感数据泄露。返回给调用方的 warning 不应包含堆栈或内部实现细节。
+日志记录使用注入的 `FeelExpressionLogger` 端口，而非 `console`。当前实现传递 `functionName`、`expression` 和原始 `error`；默认不记录完整变量值，避免敏感数据泄露。返回给调用方的 warning 不应包含堆栈或内部实现细节。表达式 ID、错误类型和关联 ID 是后续日志适配器可补充的字段，尚未成为当前接口契约。
 
 ## 6. 错误策略与安全边界
 
@@ -163,6 +198,7 @@ feelin 未向自定义函数暴露当前 AST 节点或 warning 收集器，因�
 | 参数不匹配 | feelin `FUNCTION_INVOCATION_FAILURE` warning | 可按调用方策略记录 |
 | 自定义函数抛出异常 | 引擎生成 `FUNCTION_INVOCATION_FAILURE` warning，`value = null` | 必须记录结构化错误 |
 | 注册期重名、覆盖内置函数、非法定义 | 应用启动失败 | 必须记录配置错误 |
+| `validate` / `validateUnaryTest` 发现语法错误 | `valid = false`，返回全部错误偏移量 | 由调用方按场景记录 |
 
 函数必须被视为受信任的应用代码，而不是用户脚本。注册时只接受代码内定义或受应用配置控制的实现。函数应避免隐式读取浏览器时钟、全局可变状态或未经授权的网络资源；若确有这些依赖，应显式通过受控服务或变量注入，以保证测试可复现。
 
@@ -174,18 +210,23 @@ feelin 未向自定义函数暴露当前 AST 节点或 warning 收集器，因�
 2. `unaryTest` 能以 `?` 变量执行区间、比较和自定义函数表达式。
 3. 自定义函数支持位置参数与命名参数。
 4. 注册函数不能被调用变量同名覆盖。
-5. 注册同名函数或与 feelin 内置函数重名时，应用初始化失败。
+5. 注册同名函数、与 feelin 内置函数重名，或与默认函数重名时，应用初始化失败。
 6. 参数不匹配沿用 feelin warning。
 7. 自定义函数抛出异常时，不向外抛出；返回 `FUNCTION_INVOCATION_FAILURE` warning，记录一次脱敏结构化日志。
 8. 注册表在初始化后不可修改；多次调用不会相互污染上下文。
-9. feelin 升级时，内置函数冲突检查和全部契约测试必须通过。
+9. `validate` 与 `validateUnaryTest` 对合法、非法输入分别返回正确的 `valid` 和错误偏移量。
+10. 默认单例只创建一次，并已注册 `businessDay` 与 `calendarDay`。
+11. `businessDay("2026-08-14", 1)` 返回 `2026-08-17`；日期函数结果可以参与日期比较和 unary test。
+12. UTC 时间戳 `startDate`、`endDate` 经 `date and time(...)` 转换后可按 FEEL date-time 进行比较。
+13. 异步（`Promise`）自定义函数返回 `FUNCTION_INVOCATION_FAILURE` warning。
+14. feelin 升级时，内置函数冲突检查和全部契约测试必须通过；`FeelEngineStatic.BUILTIN_FUNCTION_NAMES` 的清单变更必须经过显式审查。
 
-验收标准：应用能够在启动期一次性声明任意数量的自定义函数；运行期的 `evaluate` 与 `unaryTest` 语义稳定；业务函数永不覆盖 FEEL 内置函数；函数异常以可观测、可恢复且与 feelin 结果模型一致的方式返回。
+验收标准：应用能够在启动期一次性声明任意数量的自定义函数；默认单例和 `create(...)` 创建的引擎均稳定提供日期函数；运行期的四个公开接口语义稳定；业务函数永不覆盖 FEEL 内置函数或默认函数；函数异常以可观测、可恢复且与 feelin 结果模型一致的方式返回。
 
 ## 8. 实施顺序
 
 1. 实现并测试 feelin 内置函数名称清单和 `FunctionRegistry` 注册校验。
-2. 实现不可变 `FeelExpressionEngine`，公开 `evaluate` 与 `unaryTest`。
+2. 实现不可变 `FeelExpressionEngine`，公开 `evaluate`、`unaryTest`、`validate` 与 `validateUnaryTest`，并提供默认单例。
 3. 实现函数适配器、日志端口和异常到 warning 的转换。
-4. 将业务函数（如 `businessDay`）迁移为 `FeelFunctionDefinition`。
+4. 将业务函数（如 `businessDay`、`calendarDay`）迁移为 `FeelFunctionDefinition` 并在默认单例中注册。
 5. 添加上述契约测试，并在 feelin 依赖升级流程中强制执行。

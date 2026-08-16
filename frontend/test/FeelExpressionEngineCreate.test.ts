@@ -10,6 +10,8 @@ describe('FeelExpressionEngine.create', () => {
     expect(engine.evaluate('amount * 2', { amount: 21 })).toEqual({ value: 42, warnings: [] });
     expect(engine.unaryTest('> minimum', { '?': 5, minimum: 3 }))
       .toEqual({ value: true, warnings: [] });
+    expect(engine.evaluate('businessDay("2026-08-14", 1)').value.toISODate())
+      .toBe('2026-08-17');
   });
 
   test('provides one default instance with calendar functions registered', () => {
@@ -31,6 +33,8 @@ describe('FeelExpressionEngine.create', () => {
 
     expect(engine.evaluate('discounted(100, 0.2)')).toEqual({ value: 80, warnings: [] });
     expect(engine.evaluate('discounted(rate: 0.2, amount: 100)')).toEqual({ value: 80, warnings: [] });
+    expect(engine.evaluate('calendarDay(date("2026-08-14"), 1)').value.toISODate())
+      .toBe('2026-08-15');
   });
 
   test('rejects duplicate and built-in function names during startup registration', () => {
@@ -42,6 +46,10 @@ describe('FeelExpressionEngine.create', () => {
       { name: 'answer', args: [], handler: () => 42 },
       { name: 'answer', args: [], handler: () => 0 }
     ])).toThrow('already registered');
+
+    expect(() => FeelExpressionEngine.create([ {
+      name: 'businessDay', args: [], handler: () => null
+    } ])).toThrow('already registered');
   });
 
   test('freezes the function registry after startup', () => {
