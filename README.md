@@ -23,4 +23,4 @@ mvn test
 
 设计文档：[docs/feelers-java-backend-design.md](docs/feelers-java-backend-design.md)
 
-代码规范：[docs/code-conventions.en.md](docs/code-conventions.en.md)
+代码规范：[src/AGENTS.md](src/AGENTS.md)

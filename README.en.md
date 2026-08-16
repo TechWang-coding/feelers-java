@@ -23,4 +23,4 @@ The tests use JUnit 5 and mirror the front-end Jest scenarios: insertion, condit
 
 Design document: [docs/feelers-java-backend-design.en.md](docs/feelers-java-backend-design.en.md)
 
-Code conventions: [docs/code-conventions.en.md](docs/code-conventions.en.md)
+Java code conventions: [src/AGENTS.md](src/AGENTS.md)

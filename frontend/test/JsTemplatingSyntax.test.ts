@@ -1,7 +1,7 @@
 import { describe, expect, test } from '@jest/globals';
 import { evaluate, parse as parseTemplate, parseToSimpleTree } from 'feelers';
 
-function validateTemplateSyntax(template) {
+function validateTemplateSyntax(template: string): Array<{ from: number; to: number }> {
   const errors = [];
   const cursor = parseTemplate(template).cursor();
 
@@ -73,7 +73,7 @@ describe('FEELers template syntax', () => {
 
   test('can sanitize each inserted FEEL result', () => {
     expect(evaluate('<p>{{ value }}</p>', { value: '<script>' }, {
-      sanitizer: (value) => value.replaceAll('<', '&lt;')
+      sanitizer: (value: string) => value.replaceAll('<', '&lt;')
     })).toBe('<p>&lt;script></p>');
   });
 

@@ -2,7 +2,8 @@
   "type": "module",
   "scripts": {
     "build": "tsc --project tsconfig.json",
-    "test": "npm run build && node --experimental-vm-modules ./node_modules/jest/bin/jest.js --runInBand"
+    "typecheck:test": "tsc --project tsconfig.test.json",
+    "test": "npm run build && npm run typecheck:test && node --experimental-vm-modules ./node_modules/jest/bin/jest.js --runInBand"
   },
   "jest": {
     "extensionsToTreatAsEsm": [".ts"],

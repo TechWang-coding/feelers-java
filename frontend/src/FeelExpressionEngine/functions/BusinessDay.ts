@@ -1,14 +1,19 @@
-import { date as feelDate } from '@bpmn-io/feelin';
-import type { FeelFunctionDefinition } from '../common/FeelExpressionTypes';
-
-/** A FEEL date value as represented by the browser FEEL runtime. */
-export type FeelDate = ReturnType<typeof feelDate>;
+import { feelinRuntime } from '../adapters/feelin/FeelinRuntime';
+import type { FeelFunctionDefinition } from '../types';
+import type { FeelDate } from './types';
 
 /** The business-calendar boundary supplied by the host application. */
 export interface BusinessCalendar {
+  /**
+   * Determines whether an ISO date counts toward a business-day offset.
+   *
+   * @param isoDate Valid ISO calendar date selected by `businessDay`.
+   * @returns Whether the date is a working day under this calendar's policy.
+   */
   isWorkingDay(isoDate: string): boolean;
 }
 
+/** Optional overrides for the default weekend-based business-calendar policy. */
 export interface WeekendBusinessCalendarOptions {
   /** Non-working ISO dates, for example public holidays. */
   holidays?: Iterable<string>;
@@ -17,7 +22,12 @@ export interface WeekendBusinessCalendarOptions {
 }
 
 /**
- * Creates the default weekend-based business calendar. `workingDays` wins over `holidays`.
+ * Creates the default weekend-based calendar so applications can add holiday and make-up-day
+ * policy without replacing the `businessDay` algorithm.
+ *
+ * @param options Optional non-working and explicit working ISO-date overrides.
+ * @returns A calendar where explicit working days take precedence over holidays and weekends.
+ * @throws {Error} When a calendar lookup receives an invalid ISO date.
  */
 export function createWeekendBusinessCalendar(
   options: WeekendBusinessCalendarOptions = {}
@@ -30,7 +40,7 @@ export function createWeekendBusinessCalendar(
       if (workingDays.has(isoDate)) return true;
       if (holidays.has(isoDate)) return false;
 
-      const candidate = feelDate(isoDate);
+      const candidate = feelinRuntime.createDate(isoDate);
       if (!candidate.isValid) {
         throw new Error(`Business calendar received an invalid ISO date: ${isoDate}`);
       }
@@ -40,9 +50,13 @@ export function createWeekendBusinessCalendar(
 }
 
 /**
- * Registers `businessDay(baseDate, offset)`. `baseDate` may be an ISO date string or a FEEL date.
- * Positive offsets move forward; the base date is not counted, so Friday plus one business day is
+ * Creates the `businessDay(baseDate, offset)` definition used to move through a supplied working
+ * calendar. Positive offsets move forward; the base date is not counted, so Friday plus one is
  * Monday.
+ *
+ * @param calendar Working-day policy used for each traversed date.
+ * @returns A registered-function definition accepting an ISO date or FEEL date and an integer.
+ * @throws {TypeError} At invocation time when the date or offset is invalid.
  */
 export function createBusinessDayFunction(
   calendar: BusinessCalendar = createWeekendBusinessCalendar()
@@ -74,22 +88,19 @@ export function createBusinessDayFunction(
   };
 }
 
-function isFeelDate(value: unknown): value is FeelDate {
-  return typeof value === 'object'
-    && value !== null
-    && 'isValid' in value
-    && (value as { isValid: unknown }).isValid === true
-    && 'plus' in value
-    && 'toISODate' in value;
-}
-
+/**
+ * Normalizes the two supported date inputs before date arithmetic begins, keeping the public
+ * function contract independent of the underlying runtime representation.
+ *
+ * @param value ISO date string or runtime date value supplied by FEEL.
+ * @returns A valid runtime date.
+ * @throws {TypeError} When the value is not a supported valid date input.
+ */
 function toFeelDate(value: unknown): FeelDate {
-  if (isFeelDate(value)) return value;
-
+  if (feelinRuntime.isDate(value)) return value;
   if (typeof value === 'string') {
-    const parsed = feelDate(value);
+    const parsed = feelinRuntime.createDate(value);
     if (parsed.isValid) return parsed;
   }
-
   throw new TypeError('businessDay baseDate must be an ISO date string or FEEL date');
 }

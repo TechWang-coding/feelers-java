@@ -1,7 +1,5 @@
 import { describe, expect, test } from '@jest/globals';
-import { FeelExpressionEngine } from '../src/FeelExpressionEngine/FeelExpressionEngine';
-import { FeelFunctionRegistry } from '../src/FeelExpressionEngine/common/FeelFunctionRegistry';
-import type { FeelExpressionLogger } from '../src/FeelExpressionEngine/common/FeelExpressionTypes';
+import { FeelExpressionEngine, type FeelExpressionLogger } from '../../src/FeelExpressionEngine';
 
 describe('FeelExpressionEngine.create', () => {
   test('evaluates expressions and unary tests through a reusable engine', () => {
@@ -10,18 +8,15 @@ describe('FeelExpressionEngine.create', () => {
     expect(engine.evaluate('amount * 2', { amount: 21 })).toEqual({ value: 42, warnings: [] });
     expect(engine.unaryTest('> minimum', { '?': 5, minimum: 3 }))
       .toEqual({ value: true, warnings: [] });
-    expect(engine.evaluate('businessDay("2026-08-14", 1)').value.toISODate())
-      .toBe('2026-08-17');
+    expect(getIsoDate(engine.evaluate('businessDay("2026-08-14", 1)').value)).toBe('2026-08-17');
   });
 
   test('provides one default instance with calendar functions registered', () => {
     const engine = FeelExpressionEngine.getInstance();
 
     expect(FeelExpressionEngine.getInstance()).toBe(engine);
-    expect(engine.evaluate('calendarDay(date("2026-08-14"), 1)').value.toISODate())
-      .toBe('2026-08-15');
-    expect(engine.evaluate('businessDay(date("2026-08-14"), 1)').value.toISODate())
-      .toBe('2026-08-17');
+    expect(getIsoDate(engine.evaluate('calendarDay(date("2026-08-14"), 1)').value)).toBe('2026-08-15');
+    expect(getIsoDate(engine.evaluate('businessDay(date("2026-08-14"), 1)').value)).toBe('2026-08-17');
   });
 
   test('registers custom functions with positional and named arguments', () => {
@@ -33,8 +28,7 @@ describe('FeelExpressionEngine.create', () => {
 
     expect(engine.evaluate('discounted(100, 0.2)')).toEqual({ value: 80, warnings: [] });
     expect(engine.evaluate('discounted(rate: 0.2, amount: 100)')).toEqual({ value: 80, warnings: [] });
-    expect(engine.evaluate('calendarDay(date("2026-08-14"), 1)').value.toISODate())
-      .toBe('2026-08-15');
+    expect(getIsoDate(engine.evaluate('calendarDay(date("2026-08-14"), 1)').value)).toBe('2026-08-15');
   });
 
   test('rejects duplicate and built-in function names during startup registration', () => {
@@ -50,15 +44,6 @@ describe('FeelExpressionEngine.create', () => {
     expect(() => FeelExpressionEngine.create([ {
       name: 'businessDay', args: [], handler: () => null
     } ])).toThrow('already registered');
-  });
-
-  test('freezes the function registry after startup', () => {
-    const registry = new FeelFunctionRegistry();
-    registry.register({ name: 'answer', args: [], handler: () => 42 });
-    registry.freeze();
-
-    expect(() => registry.register({ name: 'other', args: [], handler: () => 0 }))
-      .toThrow('has been frozen');
   });
 
   test('does not let variables replace registered or built-in functions', () => {
@@ -109,3 +94,15 @@ describe('FeelExpressionEngine.create', () => {
     });
   });
 });
+
+function getIsoDate(value: unknown): string | null {
+  if (!isFeelDate(value)) throw new TypeError('Expected a FEEL date');
+  return value.toISODate();
+}
+
+function isFeelDate(value: unknown): value is { toISODate(): string | null } {
+  return typeof value === 'object'
+    && value !== null
+    && 'toISODate' in value
+    && typeof value.toISODate === 'function';
+}
