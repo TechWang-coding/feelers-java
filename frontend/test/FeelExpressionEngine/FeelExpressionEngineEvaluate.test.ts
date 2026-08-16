@@ -1,24 +1,16 @@
 import { describe, expect, test } from '@jest/globals';
 import { date } from '@bpmn-io/feelin';
-import { FeelExpressionEngine } from '../src/FeelExpressionEngine/FeelExpressionEngine';
+import { FeelExpressionEngine } from '../../src/FeelExpressionEngine';
 
 describe('FeelExpressionEngine.evaluate', () => {
   const engine = FeelExpressionEngine.getInstance();
 
   test('evaluates the registered calendarDay function', () => {
-    const result = engine.evaluate('calendarDay(date("2026-08-14"), 1)') as {
-      value: { toISODate: () => string }
-    };
-
-    expect(result.value.toISODate()).toBe('2026-08-15');
+    expect(getIsoDate(engine.evaluate('calendarDay(date("2026-08-14"), 1)').value)).toBe('2026-08-15');
   });
 
   test('evaluates the registered businessDay function', () => {
-    const result = engine.evaluate('businessDay("2026-08-14", 1)') as {
-      value: { toISODate: () => string }
-    };
-
-    expect(result.value.toISODate()).toBe('2026-08-17');
+    expect(getIsoDate(engine.evaluate('businessDay("2026-08-14", 1)').value)).toBe('2026-08-17');
   });
 
   test('uses registered custom functions in unary tests', () => {
@@ -71,3 +63,15 @@ describe('FeelExpressionEngine.evaluate', () => {
     });
   });
 });
+
+function getIsoDate(value: unknown): string | null {
+  if (!isFeelDate(value)) throw new TypeError('Expected a FEEL date');
+  return value.toISODate();
+}
+
+function isFeelDate(value: unknown): value is { toISODate(): string | null } {
+  return typeof value === 'object'
+    && value !== null
+    && 'toISODate' in value
+    && typeof value.toISODate === 'function';
+}
