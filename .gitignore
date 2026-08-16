@@ -1,4 +1,5 @@
 target
 node_modules
 temp
+dist
 .DS_Store
