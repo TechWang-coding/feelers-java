@@ -157,7 +157,7 @@ Camunda 8 uses feelin on the front end and FEEL Scala on the back end. They are 
 | Errors | Throw by default; debug uses `{{ feel expression … couldn't be evaluated }}` |
 | Security | Prevent reflection, class loading, and arbitrary Java methods; allow only a FEEL function allowlist |
 
-Shared tests belong in `test-vectors/feelers-render-cases.json`. Each case contains `id`, `profile`, `template`, `context`, `options`, and either `expected` or `error`. Jest (`feelers` + `feelin`) and JUnit (template parser + Camunda FEEL Scala) must read the same data. The existing `templating-syntax/js-templating-syntax.test.js` is the initial scenario list. When Camunda 8, FEEL Scala, feelin, or feelers is upgraded, CI must run both suites and report differences; any difference blocks release.
+Shared tests belong in `test-vectors/feelers-render-cases.json`. Each case contains `id`, `profile`, `template`, `context`, `options`, and either `expected` or `error`. Jest (`feelers` + `feelin`) and JUnit (template parser + Camunda FEEL Scala) must read the same data. The existing `frontend/test/js-templating-syntax.test.js` is the initial scenario list. When Camunda 8, FEEL Scala, feelin, or feelers is upgraded, CI must run both suites and report differences; any difference blocks release.
 
 ### 6.1 Goal coverage check
 

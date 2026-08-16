@@ -157,7 +157,7 @@ Camunda 8 本身在前端使用 feelin、后端使用 FEEL Scala；两者并非�
 | 错误 | 默认抛异常；debug 使用 `{{ feel expression … couldn't be evaluated }}` 格式 |
 | 安全 | 禁止从模板访问反射、类加载、任意 Java 方法；只注册白名单 FEEL 函数 |
 
-共享测试源应放在 `test-vectors/feelers-render-cases.json`，每条包含 `id`、`profile`、`template`、`context`、`options`、`expected` 或 `error`。Jest（`feelers` + `feelin`）与 JUnit（模板 parser + Camunda FEEL Scala）必须同时读取这一份数据；当前的 `templating-syntax/js-templating-syntax.test.js` 是其初始场景清单。对 Camunda 8、FEEL Scala、feelin 或 feelers 升级，CI 必须同时运行两套测试并报告差异，任何差异阻止发布。
+共享测试源应放在 `test-vectors/feelers-render-cases.json`，每条包含 `id`、`profile`、`template`、`context`、`options`、`expected` 或 `error`。Jest（`feelers` + `feelin`）与 JUnit（模板 parser + Camunda FEEL Scala）必须同时读取这一份数据；当前的 `frontend/test/js-templating-syntax.test.js` 是其初始场景清单。对 Camunda 8、FEEL Scala、feelin 或 feelers 升级，CI 必须同时运行两套测试并报告差异，任何差异阻止发布。
 
 ## 6.1 设计目标覆盖核验
 

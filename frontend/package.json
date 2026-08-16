@@ -1,0 +1,23 @@
+{
+  "type": "module",
+  "scripts": {
+    "build": "tsc --project tsconfig.json",
+    "test": "npm run build && node --experimental-vm-modules ./node_modules/jest/bin/jest.js --runInBand"
+  },
+  "jest": {
+    "extensionsToTreatAsEsm": [".ts"],
+    "testMatch": ["<rootDir>/test/**/*.test.ts"],
+    "transform": {
+      "^.+\\.ts$": ["babel-jest", { "presets": ["@babel/preset-typescript"] }]
+    }
+  },
+  "dependencies": {
+    "@bpmn-io/feelin": "^6.1.0",
+    "feelers": "^3.1.0"
+  },
+  "devDependencies": {
+    "@babel/preset-typescript": "^7.29.7",
+    "jest": "^30.4.2",
+    "typescript": "^7.0.2"
+  }
+}
