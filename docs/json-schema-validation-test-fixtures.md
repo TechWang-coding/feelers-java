@@ -11,18 +11,15 @@
 
 - 联系方式按渠道条件必填（`x-feel-required`）；
 - 折扣金额的上下限来自同一份数据中的 `minAmount`/`maxAmount`（动态数字关键字）；
-- 折扣金额的小数位数不能超过币种允许的精度（`x-feel-assertions` + 精度函数，设计文档 5.1）；
-- 客户号必须存在于客户主数据中（`x-feel-assertions` + 受控查询函数，设计文档 8.2）；
+- 客户类型必须存在于客户类型参照数据中（`x-feel-assertions` + 受控查询函数，设计文档 8.2）；
 - 到期日不能早于下一个工作日（`x-feel-assertions`，设计文档 6、9.3）。
 
 这份 fixture 里假定的注册函数行为（仅用于测试向量，不是最终规范）：
 
 | 函数 | 行为假设 |
 | --- | --- |
-| `decimalPlaces(n)` | 返回数字的小数位数；`25.5` → 1，`25.505` → 3 |
-| `currencyScale(code)` | `USD`→2、`CNY`→2、`JPY`→0 |
 | `businessDay(date, n)` | 从 `date` 起跳过周六周日，返回第 `n` 个工作日（本 fixture 暂不考虑节假日日历，见设计文档 10.2） |
-| `existsInReferenceSet(setName, key)` | 受控查询函数（8.2），查询客户主数据中是否存在该 `customerId` |
+| `existsInReferenceSet(setName, key)` | 受控查询函数（8.2），查询客户类型参照数据中是否存在该 `customerType` |
 
 `clock.today = "2026-08-17"`（周一）；据此 `businessDay(clock.today, 1) = "2026-08-18"`（周二）。
 
@@ -33,7 +30,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://forms.example.com/discount-application/v1",
   "type": "object",
-  "required": ["channel", "customerId", "currency", "minAmount", "maxAmount", "discount", "dueDate"],
+  "required": ["channel", "customerType", "currency", "minAmount", "maxAmount", "discount", "dueDate"],
   "x-feel-required": {
     "email": "data.channel = \"email\"",
     "phone": "data.channel = \"sms\""
@@ -42,7 +39,7 @@
     "channel": { "type": "string", "enum": ["email", "sms"] },
     "email": { "type": "string", "format": "email" },
     "phone": { "type": "string", "pattern": "^\\+[1-9]\\d{6,14}$" },
-    "customerId": { "type": "string", "minLength": 1 },
+    "customerType": { "type": "string", "minLength": 1 },
     "currency": { "type": "string", "enum": ["USD", "JPY", "CNY"] },
     "minAmount": { "type": "number" },
     "maxAmount": { "type": "number" },
@@ -56,22 +53,16 @@
   "additionalProperties": false,
   "x-feel-assertions": [
     {
-      "id": "customer-exists",
-      "assert": "existsInReferenceSet(\"customerId\", value.customerId)",
-      "target": "/customerId",
-      "messageKey": "customerId.notFound"
-    },
-    {
-      "id": "discount-scale-matches-currency",
-      "assert": "decimalPlaces(value.discount) <= currencyScale(value.currency)",
-      "target": "/discount",
-      "messageKey": "discount.invalidScale"
+      "id": "customer-type-exists",
+      "assert": "existsInReferenceSet(\"customerType\", value.customerType)",
+      "targetField": "/customerType",
+      "errorMessage": "Customer type not found, please choose another"
     },
     {
       "id": "due-date-not-before-tomorrow",
       "assert": "date(value.dueDate) >= businessDay(clock.today, 1)",
-      "target": "/dueDate",
-      "messageKey": "dueDate.notBeforeNextBusinessDay"
+      "targetField": "/dueDate",
+      "errorMessage": "Due date must not be earlier than the next business day"
     }
   ]
 }
@@ -88,12 +79,12 @@ Schema：`x-feel-required`、`x-feel-assertions` 已被消费掉、不出现在�
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://forms.example.com/discount-application/v1",
   "type": "object",
-  "required": ["channel", "customerId", "currency", "minAmount", "maxAmount", "discount", "dueDate", "email"],
+  "required": ["channel", "customerType", "currency", "minAmount", "maxAmount", "discount", "dueDate", "email"],
   "properties": {
     "channel": { "type": "string", "enum": ["email", "sms"] },
     "email": { "type": "string", "format": "email" },
     "phone": { "type": "string", "pattern": "^\\+[1-9]\\d{6,14}$" },
-    "customerId": { "type": "string", "minLength": 1 },
+    "customerType": { "type": "string", "minLength": 1 },
     "currency": { "type": "string", "enum": ["USD", "JPY", "CNY"] },
     "minAmount": { "type": "number" },
     "maxAmount": { "type": "number" },
@@ -126,6 +117,10 @@ Schema：`x-feel-required`、`x-feel-assertions` 已被消费掉、不出现在�
 }
 ```
 
+`targetField` 与错误对象的 `instancePath` 都是锚定在这份数据根上的 JSON Pointer（设计文档
+9.2），例如 `/dueDate`。它与 FEEL 上下文里的 `data` 是同一份数据，只是入口不同：FEEL 表达式
+内用 `data`/`value` 读取，字段定位用 JSON Pointer。
+
 ## 5. 测试场景
 
 | # | 场景 | 预期 category/code |
@@ -134,10 +129,10 @@ Schema：`x-feel-required`、`x-feel-assertions` 已被消费掉、不出现在�
 | 2 | 条件必填未满足 | `data` / `data.required` |
 | 3 | 动态上限被突破 | `data` / `data.maximum` |
 | 4 | 到期日早于下一工作日 | `assertion` / `assertion.failed`（`due-date-not-before-tomorrow`） |
-| 5 | 折扣精度超过币种允许位数 | `assertion` / `assertion.failed`（`discount-scale-matches-currency`） |
-| 6 | 客户号查询超时 | `upstream` / `upstream.lookupTimeout` |
-| 7 | `x-feel-required` 表达式结果非布尔 | `schema` / `schema.feelResultType` |
-| 8 | `{{ }}` 内 FEEL 语法错误 | `schema` / `schema.feelSyntax` |
+| 5 | 客户类型查询超时 | `upstream` / `upstream.lookupTimeout` |
+| 6 | `x-feel-required` 表达式结果非布尔 | `schema` / `schema.feelResultType` |
+| 7 | `{{ }}` 内 FEEL 语法错误 | `schema` / `schema.feelSyntax` |
+| 8 | 断言未写 `errorMessage`，触发默认兜底文案 | `assertion` / `assertion.failed`（默认文案） |
 
 ### 场景 1：全部通过
 
@@ -147,7 +142,7 @@ Schema：`x-feel-required`、`x-feel-assertions` 已被消费掉、不出现在�
 {
   "channel": "email",
   "email": "alice@example.com",
-  "customerId": "CUST-1001",
+  "customerType": "ENTERPRISE",
   "currency": "USD",
   "minAmount": 0,
   "maxAmount": 100,
@@ -156,8 +151,8 @@ Schema：`x-feel-required`、`x-feel-assertions` 已被消费掉、不出现在�
 }
 ```
 
-预期：`existsInReferenceSet` 返回 true；`decimalPlaces(25.5)=1 <= currencyScale(USD)=2`；
-`2026-08-19 >= 2026-08-18`。JSON Schema 与三条 `x-feel-assertions` 均通过，错误数组为 `[]`。
+预期：`existsInReferenceSet` 返回 true；`2026-08-19 >= 2026-08-18`。JSON Schema 与两条
+`x-feel-assertions` 均通过，错误数组为 `[]`。
 
 ### 场景 2：条件必填未满足（`data.required`）
 
@@ -175,12 +170,13 @@ Schema：`x-feel-required`、`x-feel-assertions` 已被消费掉、不出现在�
     "keyword": "required",
     "assertionId": null,
     "messageKey": "validation.required",
+    "message": null,
     "arguments": { "property": "email" }
   }
 ]
 ```
 
-`x-feel-assertions` 不执行（9.3：有数据错误时关系断言短路），所以即使 `customerId`/`discount`/
+`x-feel-assertions` 不执行（9.3：有数据错误时关系断言短路），所以即使 `customerType`/`discount`/
 `dueDate` 本身没问题，也只返回这一条错误。
 
 ### 场景 3：动态上限被突破（`data.maximum`）
@@ -199,6 +195,7 @@ Schema：`x-feel-required`、`x-feel-assertions` 已被消费掉、不出现在�
     "keyword": "maximum",
     "assertionId": null,
     "messageKey": "validation.maximum",
+    "message": null,
     "arguments": { "limit": 100 }
   }
 ]
@@ -219,10 +216,11 @@ Schema：`x-feel-required`、`x-feel-assertions` 已被消费掉、不出现在�
     "category": "assertion",
     "code": "assertion.failed",
     "instancePath": "/dueDate",
-    "schemaPath": "#/x-feel-assertions/2",
+    "schemaPath": "#/x-feel-assertions/1",
     "keyword": null,
     "assertionId": "due-date-not-before-tomorrow",
-    "messageKey": "dueDate.notBeforeNextBusinessDay",
+    "messageKey": null,
+    "message": "Due date must not be earlier than the next business day",
     "arguments": {}
   }
 ]
@@ -231,31 +229,9 @@ Schema：`x-feel-required`、`x-feel-assertions` 已被消费掉、不出现在�
 这条只在 JSON Schema 校验全部通过后才会出现——如果同一份数据还缺 `email`，应该只看到场景 2
 那条 `data.required`，这条断言错误不会一起出现。
 
-### 场景 5：折扣精度超过币种允许位数（`assertion.failed`）
+### 场景 5：客户类型查询超时（`upstream.lookupTimeout`）
 
-在场景 1 基础上，把 `discount` 改成 `25.505`（`currency` 仍是 `USD`，`currencyScale=2`，
-`decimalPlaces(25.505)=3`）。
-
-预期错误：
-
-```json
-[
-  {
-    "category": "assertion",
-    "code": "assertion.failed",
-    "instancePath": "/discount",
-    "schemaPath": "#/x-feel-assertions/1",
-    "keyword": null,
-    "assertionId": "discount-scale-matches-currency",
-    "messageKey": "discount.invalidScale",
-    "arguments": {}
-  }
-]
-```
-
-### 场景 6：客户号查询超时（`upstream.lookupTimeout`）
-
-在场景 1 基础上，把 `customerId` 改成 `"CUST-9999"`，并假定测试桩把
+在场景 1 基础上，把 `customerType` 改成 `"UNKNOWN_TYPE"`，并假定测试桩把
 `existsInReferenceSet` 模拟为超时（不是"查不到"，是"没查完"）。
 
 预期错误：
@@ -265,23 +241,24 @@ Schema：`x-feel-required`、`x-feel-assertions` 已被消费掉、不出现在�
   {
     "category": "upstream",
     "code": "upstream.lookupTimeout",
-    "instancePath": "/customerId",
+    "instancePath": "/customerType",
     "schemaPath": "#/x-feel-assertions/0",
     "keyword": null,
-    "assertionId": "customer-exists",
+    "assertionId": "customer-type-exists",
     "messageKey": "system.lookupUnavailable",
+    "message": null,
     "arguments": { "function": "existsInReferenceSet", "timeoutMs": 3000 }
   }
 ]
 ```
 
-> **待确认（开放问题）**：设计文档 8.2/9.3 里 `messageKey` 是"断言为 `false`"时展示给用户的
-> 文案键，没有定义"断言因上游故障而无法求值"时该用哪个 key。这里先用一个固定的系统级
-> `system.lookupUnavailable` 占位，而不是复用 Form DSL 里该断言自己的 `customerId.notFound`
-> ——因为"没查完"和"查完了但不存在"在业务语义上不该提示同一句话。是否要在 `x-feel-assertions`
-> 的 schema 里为每条断言额外加一个可选的 `upstreamMessageKey`，需要和 10 节第 6 项一起定。
+> 这条已按设计文档 9.3/9.4 的最终结论解出：`upstream` 类错误不使用该断言自己的
+> `errorMessage`（"Customer type not found…"是"查完了、确实不存在"的文案，这里是
+> "没查完"，语义不同），而是走 `messageKey`（固定的系统级目录键，与 `data`/`schema` 错误
+> 同一套机制），`message` 固定为 `null`。不需要在 Form DSL 里为每条断言另加
+> `upstreamMessageKey`。
 
-### 场景 7：`x-feel-required` 表达式结果非布尔（`schema.feelResultType`）
+### 场景 6：`x-feel-required` 表达式结果非布尔（`schema.feelResultType`）
 
 发布一份改坏的 Form DSL 变体（其余不变）：
 
@@ -307,12 +284,13 @@ Schema：`x-feel-required`、`x-feel-assertions` 已被消费掉、不出现在�
     "keyword": "x-feel-required",
     "assertionId": null,
     "messageKey": null,
+    "message": null,
     "arguments": { "expected": "boolean", "actual": "string" }
   }
 ]
 ```
 
-### 场景 8：`{{ }}` 内 FEEL 语法错误（`schema.feelSyntax`）
+### 场景 7：`{{ }}` 内 FEEL 语法错误（`schema.feelSyntax`）
 
 发布一份改坏的 Form DSL 变体：
 
@@ -338,10 +316,48 @@ Schema：`x-feel-required`、`x-feel-assertions` 已被消费掉、不出现在�
     "keyword": "minimum",
     "assertionId": null,
     "messageKey": null,
+    "message": null,
     "arguments": { "expression": "data.minAmount + " }
   }
 ]
 ```
+
+### 场景 8：断言未写 `errorMessage`，触发默认兜底文案
+
+发布一份变体：`due-date-not-before-tomorrow` 这条断言去掉 `errorMessage` 字段，其余不变：
+
+```json
+{
+  "id": "due-date-not-before-tomorrow",
+  "assert": "date(value.dueDate) >= businessDay(clock.today, 1)",
+  "targetField": "/dueDate"
+}
+```
+
+发布期校验器（10.1）应对此给出警告（提醒作者用户会看到默认话术），但这不是阻断性的
+Schema 配置错误，仍然可以发布。用场景 4 的数据（`dueDate: "2026-08-17"`）触发它：
+
+预期错误：
+
+```json
+[
+  {
+    "category": "assertion",
+    "code": "assertion.failed",
+    "instancePath": "/dueDate",
+    "schemaPath": "#/x-feel-assertions/1",
+    "keyword": null,
+    "assertionId": "due-date-not-before-tomorrow",
+    "messageKey": null,
+    "message": "/dueDate does not satisfy the business rule",
+    "arguments": {}
+  }
+]
+```
+
+`message` 是引擎按 9.3 的默认模板 `"{targetField} does not satisfy the business rule"` 拼出来的，不是 Form DSL 里的
+文本——这也是为什么发布期应该对缺 `errorMessage` 的断言报警：`/dueDate` 这种字段路径对最终用户
+并不友好，作者应该尽量都补上有意义的 `errorMessage`。
 
 ## 6. 尚未覆盖、留给下一份 fixture 的场景
 
