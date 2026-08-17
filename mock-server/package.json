@@ -1,0 +1,9 @@
+{
+  "name": "reference-data-mock-api",
+  "private": true,
+  "type": "module",
+  "description": "Zero-dependency mock API for field metadata and dictionary value validation.",
+  "scripts": {
+    "start": "node index.js"
+  }
+}

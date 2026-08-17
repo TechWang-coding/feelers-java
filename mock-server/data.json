@@ -1,0 +1,26 @@
+{
+  "fields": {
+    "customerType": {
+      "fieldKey": "customerType",
+      "label": "客户类型",
+      "dataType": "STRING",
+      "dataSourceUniqueName": "CUSTOMER_TYPE"
+    },
+    "currency": {
+      "fieldKey": "currency",
+      "label": "币种",
+      "dataType": "STRING",
+      "dataSourceUniqueName": "CURRENCY"
+    },
+    "channel": {
+      "fieldKey": "channel",
+      "label": "联系渠道",
+      "dataType": "STRING",
+      "dataSourceUniqueName": null
+    }
+  },
+  "dictionaries": {
+    "CUSTOMER_TYPE": ["ENTERPRISE", "RETAIL", "GOVERNMENT"],
+    "CURRENCY": ["USD", "JPY", "CNY"]
+  }
+}
