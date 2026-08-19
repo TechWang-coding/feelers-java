@@ -21,6 +21,6 @@ mvn test
 
 测试使用 JUnit 5，并与前端 Jest 用例保持同一组模板场景：插值、条件、循环、`this`/`parent`、换行、strict/debug 与 sanitizer。
 
-设计文档：[docs/feelers-java-backend-design.md](docs/feelers-java-backend-design.md)
+设计文档：[docs/templating-syntax/1-feelers-java-backend-design.md](docs/templating-syntax/1-feelers-java-backend-design.md)
 
 代码规范：[src/AGENTS.md](src/AGENTS.md)

@@ -2,7 +2,7 @@
 
 > 状态：待评审
 >
-> 上游契约：[json-schema-validation-design.md](./json-schema-validation-design.md)
+> 上游契约：[1-json-schema-validation-design.md](../1-json-schema-validation-design.md)
 >
 > 最后更新：2026-08-17
 
@@ -203,7 +203,7 @@ JsonMapper.builder()
 
 - **`expression` 单测**：注入假 `ReferenceDataClient`，不起 HTTP 服务；覆盖注册期重名/遮蔽、
   函数异常转 warning、语法校验、日期函数边界。
-- **`validation` 单测**：直接消费 [json-schema-validation-test-fixtures.md](./json-schema-validation-test-fixtures.md)
+- **`validation` 单测**：直接消费 [2-json-schema-validation-test-fixtures.md](../2-json-schema-validation-test-fixtures.md)
   的 8 个场景，逐条断言 category/code/instancePath。
 - **精度契约**：把前后端不一致的那组值固化成测试向量（`0.1+0.2`、`4.35+1.05`、`100.10+200.20`、
   `0.7+0.1`、`1.1*3`），确保 Java 侧全部精确。

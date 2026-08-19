@@ -1,6 +1,6 @@
 # 校验测试用例（配套设计文档的公共 Fixture 起点）
 
-> 状态：草案，对应 [json-schema-validation-design.md](./json-schema-validation-design.md) 第 10 节
+> 状态：草案，对应 [1-json-schema-validation-design.md](./1-json-schema-validation-design.md) 第 10 节
 > 第 4 项"公共 JSON fixture"的起点，尚未覆盖嵌套对象、数组项等更多组合场景
 >
 > 最后更新：2026-08-17
