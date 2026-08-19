@@ -1,6 +1,6 @@
 # FEELers Java 后端设计
 
-English: [feelers-java-backend-design.en.md](feelers-java-backend-design.en.md)
+English: [2-feelers-java-backend-design.en.md](2-feelers-java-backend-design.en.md)
 
 > 状态：当前实现；已按 Camunda 8 双引擎架构校准
 > 负责人：后端模板模块
